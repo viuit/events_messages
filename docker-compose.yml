@@ -1,0 +1,26 @@
+version: "3.4"
+
+services:
+  rabbitmq:
+    build: ./rabbitmq
+    container_name: rabbitmq_service
+    restart: always
+    ports:
+      - 15672:15672
+      - 5672:5672
+
+  postgresql:
+    image: postgres:15.2-alpine
+    container_name: postgres_service
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: 1234567
+      POSTGRES_USER: admin
+      POSTGRES_DB: db01
+      PGDATA: /data
+      POSTGRES_INITDB_ARGS: "-A md5"
+    ports:
+      - "54320:5432"
+
+    # command: ['rabbitmqadmin declare queue name=new queue_type=stream']
+    # command: ['rabbitmqadmin declare binding source=amq.topic destination=new routing_key=test']
