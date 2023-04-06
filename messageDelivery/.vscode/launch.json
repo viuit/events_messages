@@ -1,0 +1,27 @@
+{
+    // Используйте IntelliSense, чтобы узнать о возможных атрибутах.
+    // Наведите указатель мыши, чтобы просмотреть описания существующих атрибутов.
+    // Для получения дополнительной информации посетите: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Run Debug",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "main.go",
+            "args": ["--configFile", "config.json"],
+            "env": {
+                "ASD_CIPHER_KEY": "k45IS8Z90sx4w0L6AC2wsG0TntRPaNzsjyU1ve0CaKM=",
+                "ASD_POSTGRES_HOST": "localhost",
+                "ASD_POSTGRES_PORT": "5432",
+                "ASD_POSTGRES_DBNAME": "poly_bgp",
+                "ASD_RMQ_HOST": "spbsrvasdproxy2",
+                "ASD_RMQ_PORT": "5672",
+                "ASD_RMQ_VHOST": "asd.asd.local.asd-test-03",
+                "SERVICE_RMQ_EXCHANGE": "test",
+            }
+        }
+    ]
+}
