@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	config "messageDelivery/config"
@@ -30,7 +31,7 @@ type rabbitConfig struct {
 type rabbitSession struct {
 	conn            *amqp.Connection
 	ch              *amqp.Channel
-	MessagesChan    <-chan amqp.Delivery
+	messages        <-chan amqp.Delivery
 	NotifyConnClose chan *amqp.Error
 	NotifyChanClose chan *amqp.Error
 	NotifyConfirm   chan amqp.Confirmation
@@ -41,6 +42,7 @@ type rabbitSession struct {
 var mqConf *rabbitConfig
 var confEnv *config.Environment
 var confjs map[string]interface{}
+var errNotConnected = errors.New("not connected to a server")
 
 func init() {
 	opts := config.NewArgs()
@@ -77,16 +79,28 @@ func main() {
 		}
 	}()
 
-	var forever chan struct{}
+	// var forever chan struct{}
 
-	go func() {
-		for d := range mqSession.MessagesChan {
-			log.Printf("Received a message: %s", d.Body)
-			d.Ack(true)
-		}
-	}()
+	// var messages <-chan amqp.Delivery
 
-	<-forever
+	var err error
+	// for !mqSession.isReady {
+	// 	time.Sleep(100 * time.Millisecond)
+	// 	continue
+	// }
+	mqSession.messages, err = mqSession.Stream()
+	if err != nil {
+		log.Errorf("Stream error: %v", err)
+	}
+
+	log.Infoln("Consume success to RabbitMQ!")
+
+	for d := range mqSession.messages {
+		log.Printf("Received a message: %s", d.Body)
+		d.Ack(true)
+	}
+
+	// <-forever
 
 	// log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	// <-forever
@@ -162,22 +176,7 @@ func (session *rabbitSession) Create() {
 		log.Errorf("Failed Qos RabbitMQ: %v", err)
 		return
 	}
-	session.MessagesChan = make(chan amqp.Delivery)
-
-	var err error
-	session.MessagesChan, err = session.ch.Consume(
-		mqConf.name_queue,                     // queue
-		"messageDelivery",                     // consumer
-		false,                                 // auto-ack
-		false,                                 // exclusive
-		false,                                 // no-local
-		false,                                 // no-wait
-		amqp.Table{"x-stream-offset": "last"}, // args
-	)
-	if err != nil {
-		log.Errorf("Consume error %v", err)
-		return
-	}
+	// session.MessagesChan = make(<-chan amqp.Delivery)
 
 	// session.NotifyConfirm = make(chan amqp.Confirmation, 1)
 	session.NotifyChanClose = make(chan *amqp.Error)
@@ -202,6 +201,27 @@ func (session *rabbitSession) Connection(url string) {
 	session.NotifyConnClose = make(chan *amqp.Error)
 	session.conn.NotifyClose(session.NotifyConnClose)
 	log.Infof("Connect to RabbitMQ server is completed, %s!", mqConf.URLINFO())
+}
+
+// Stream will continuously put queue items on the channel.
+// It is required to call delivery.Ack when it has been
+// successfully processed, or delivery.Nack when it fails.
+// Ignoring this will cause data to build up on the server.
+func (session *rabbitSession) Stream() (<-chan amqp.Delivery, error) {
+	for !session.isReady {
+		log.Errorf("Consume error %v", errNotConnected)
+		time.Sleep(100 * time.Millisecond)
+		continue
+	}
+	return session.ch.Consume(
+		mqConf.name_queue,
+		"",                                    // Consumer
+		false,                                 // Auto-Ack
+		false,                                 // Exclusive
+		false,                                 // No-local
+		false,                                 // No-Wait
+		amqp.Table{"x-stream-offset": "last"}, // Args
+	)
 }
 
 // Close will cleanly shutdown the channel and connection.
